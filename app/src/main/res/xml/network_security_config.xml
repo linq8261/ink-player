@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 默认禁止明文，local 变体通过 src/local/res/ 覆盖此文件 -->
+</network-security-config>
