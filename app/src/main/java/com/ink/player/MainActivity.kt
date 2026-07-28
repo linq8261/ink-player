@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            _root_ide_package_.com.ink.player.ui.theme.MyvideoplayerTheme {
+            _root_ide_package_.com.ink.player.ui.theme.InkPlayerTheme {
                 val nc = rememberNavController()
                 navController = nc
 

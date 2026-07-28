@@ -5,7 +5,7 @@ import com.ink.player.util.ToastUtil
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class MyVideoPlayerApplication : Application() {
+class InkPlayerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
