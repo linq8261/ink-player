@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,15 +38,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ink.player.data.model.VideoInfo
+import com.ink.player.util.VideoThumbnailLoader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,6 +139,14 @@ private fun VideoListItem(
     video: VideoInfo,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    var thumbnail by remember(video.id) { mutableStateOf<ImageBitmap?>(null) }
+
+    // 异步加载封面/首帧缩略图（离屏自动取消，缓存命中零开销）
+    LaunchedEffect(video.id) {
+        thumbnail = VideoThumbnailLoader.load(context, video.uri)
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -144,15 +160,26 @@ private fun VideoListItem(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Video thumbnail placeholder
-            Box(
-                modifier = Modifier
-                    .size(width = 120.dp, height = 72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2A2A2A)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "🎬", style = MaterialTheme.typography.headlineLarge)
+            // 缩略图区：有封面/首帧显示图片，加载中/失败回退 🎬 占位
+            if (thumbnail != null) {
+                Image(
+                    bitmap = thumbnail!!,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(width = 120.dp, height = 72.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(width = 120.dp, height = 72.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF2A2A2A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "🎬", style = MaterialTheme.typography.headlineLarge)
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))

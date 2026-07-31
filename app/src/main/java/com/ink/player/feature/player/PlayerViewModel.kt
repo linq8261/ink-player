@@ -42,6 +42,9 @@ class PlayerViewModel @Inject constructor(
     private var currentProgressKey: String? = null
     private var hasRestoredPosition = false
 
+    /** 标记当前视频是否已播放完毕（播放完毕后点击屏幕从头开始播放） */
+    private var playbackEnded = false
+
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
 
@@ -58,6 +61,17 @@ class PlayerViewModel @Inject constructor(
                     _duration.value = player.duration.coerceAtLeast(0)
                     println("视频时长：${_duration.value}")
                     restorePosition()
+                } else if (playbackState == Player.STATE_ENDED) {
+                    // 播放完毕：自动停止，并清除已保存的进度（下次打开从头播放）
+                    playbackEnded = true
+                    player.pause()
+                    val key = currentProgressKey
+                    if (key != null) {
+                        viewModelScope.launch {
+                            progressDao.delete(key)
+                        }
+                    }
+                    LogUtil.d("Playback ENDED, auto stop and progress cleared")
                 }
             }
 
@@ -104,6 +118,7 @@ class PlayerViewModel @Inject constructor(
     fun play(videoUri: String) {
         this.videoUri = videoUri
         hasRestoredPosition = false
+        playbackEnded = false
         currentProgressKey = null
 
         val mediaItem = MediaItem.fromUri(videoUri)
@@ -211,6 +226,7 @@ class PlayerViewModel @Inject constructor(
     // ── 进度保存 ──
 
     fun saveProgressNow() {
+        if (playbackEnded) return // 播放完毕不保存结尾进度
         val key = currentProgressKey ?: return
         val pos = player.currentPosition
         if (pos > 0) {
@@ -234,6 +250,10 @@ class PlayerViewModel @Inject constructor(
     fun seekTo(positionMs: Long) {
         player.seekTo(positionMs)
         _currentPosition.value = positionMs
+        // 拖拽/手势 seek 离开结尾后，解除“播放完毕”状态
+        if (playbackEnded && positionMs < player.duration.coerceAtLeast(0)) {
+            playbackEnded = false
+        }
     }
 
     fun onTimelineDragStart() {
@@ -257,7 +277,18 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun togglePlayPause() {
-        if (player.isPlaying) player.pause() else player.play()
+        if (player.isPlaying) {
+            player.pause()
+        } else if (player.playbackState == Player.STATE_ENDED) {
+            // 播放完毕后再点击：从头开始播放
+            playbackEnded = false
+            player.seekTo(0)
+            _currentPosition.value = 0
+            player.play()
+            LogUtil.d("Replay from start")
+        } else {
+            player.play()
+        }
     }
 
     /** 默认播放速度（1倍速），后续可提供修改功能 */
@@ -354,10 +385,10 @@ class PlayerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        // 同步保存，确保在 ViewModel 销毁前写入数据库
+        // 同步保存，确保在 ViewModel 销毁前写入数据库（播放完毕则不保存）
         val key = currentProgressKey
         val pos = player.currentPosition
-        if (key != null && pos > 0) {
+        if (!playbackEnded && key != null && pos > 0) {
             runBlocking {
                 progressDao.upsert(
                     VideoProgressEntity(
