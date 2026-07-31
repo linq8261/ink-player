@@ -62,13 +62,19 @@ class PlayerViewModel @Inject constructor(
                     println("视频时长：${_duration.value}")
                     restorePosition()
                 } else if (playbackState == Player.STATE_ENDED) {
-                    // 播放完毕：自动停止，并清除已保存的进度（下次打开从头播放）
+                    // 播放完毕：自动停止；保留最近播放记录但进度清零（下次从头播放）
                     playbackEnded = true
                     player.pause()
                     val key = currentProgressKey
                     if (key != null) {
                         viewModelScope.launch {
-                            progressDao.delete(key)
+                            progressDao.upsert(
+                                VideoProgressEntity(
+                                    videoUri = key,
+                                    positionMs = 0,
+                                    lastPlayedAt = System.currentTimeMillis()
+                                )
+                            )
                         }
                     }
                     LogUtil.d("Playback ENDED, auto stop and progress cleared")

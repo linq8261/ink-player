@@ -81,6 +81,7 @@ fun VideoListScreen(
 ) {
     val videos by viewModel.videos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val recentVideos by viewModel.recentVideos.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -99,6 +100,7 @@ fun VideoListScreen(
 
     VideoListContent(
         videos = videos,
+        recentVideos = recentVideos,
         isLoading = isLoading,
         onVideoClick = onVideoClick,
         onNavigateToSettings = onNavigateToSettings
@@ -110,6 +112,7 @@ fun VideoListScreen(
 @Composable
 fun VideoListContent(
     videos: List<VideoInfo>,
+    recentVideos: List<VideoInfo>,
     isLoading: Boolean,
     onVideoClick: (String) -> Unit,
     onNavigateToSettings: () -> Unit
@@ -145,7 +148,7 @@ fun VideoListContent(
             // 搜索框（静态占位，搜索功能后续实现）
             SearchBarPlaceholder()
 
-            // 内容区
+            // 内容区：0=视频 1=最近 2=设置（设置页独立导航，回落显示视频列表）
             when {
                 isLoading -> Box(
                     modifier = Modifier
@@ -156,18 +159,21 @@ fun VideoListContent(
                     CircularProgressIndicator(color = VideoListAccent)
                 }
 
-                videos.isEmpty() -> Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "没有找到视频文件",
-                        color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
+                selectedTab == 1 && recentVideos.isEmpty() -> EmptyHint(
+                    text = "暂无最近播放",
+                    modifier = Modifier.weight(1f)
+                )
+
+                selectedTab == 1 -> VideoGrid(
+                    videos = recentVideos,
+                    onVideoClick = onVideoClick,
+                    modifier = Modifier.weight(1f)
+                )
+
+                videos.isEmpty() -> EmptyHint(
+                    text = "没有找到视频文件",
+                    modifier = Modifier.weight(1f)
+                )
 
                 else -> VideoGrid(
                     videos = videos,
@@ -215,6 +221,20 @@ private fun navItemColors() = NavigationBarItemDefaults.colors(
     unselectedIconColor = Color.White.copy(alpha = 0.4f),
     unselectedTextColor = Color.White.copy(alpha = 0.4f)
 )
+
+@Composable
+private fun EmptyHint(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = Color.White.copy(alpha = 0.5f),
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
 
 @Composable
 private fun Header(videoCount: Int) {
@@ -388,6 +408,10 @@ private fun VideoListContentPreview() {
                 VideoInfo(4, "20260403_212340914.mp4", Uri.parse("content://media/external/video/media/4"), 5_000, 1, "video/mp4", 0),
                 VideoInfo(5, "dreamina_7624495184792915262_m.mp4", Uri.parse("content://media/external/video/media/5"), 15_000, 1, "video/mp4", 0),
                 VideoInfo(6, "1785475192450..mp4", Uri.parse("content://media/external/video/media/6"), 10_000, 1, "video/mp4", 0)
+            ),
+            recentVideos = listOf(
+                VideoInfo(3, "lv_0_20260730153627.mp4", Uri.parse("content://media/external/video/media/3"), 12_000, 1, "video/mp4", 0),
+                VideoInfo(1, "Record_2026-07-31-01-11-08_8c0c.mp4", Uri.parse("content://media/external/video/media/1"), 1_356_000, 128, "video/mp4", 0)
             ),
             isLoading = false,
             onVideoClick = {},
