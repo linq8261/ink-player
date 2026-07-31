@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -54,8 +56,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -117,8 +121,16 @@ fun VideoListContent(
     onVideoClick: (String) -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    // 0=视频 1=最近（暂无独立数据源，复用视频列表） 2=设置
+    // 0=视频 1=最近 2=设置
     var selectedTab by rememberSaveable { mutableStateOf(0) }
+
+    // 搜索：常驻输入框，输入即过滤当前 tab 列表（空关键字 = 非搜索态）
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val isSearching = searchQuery.isNotBlank()
+    val searchSource = if (selectedTab == 1) recentVideos else videos
+    val searchResults = remember(searchQuery, searchSource) {
+        searchSource.filter { it.displayName.contains(searchQuery, ignoreCase = true) }
+    }
 
     Box(
         modifier = Modifier
@@ -145,10 +157,13 @@ fun VideoListContent(
             // 标题区
             Header(videoCount = videos.size)
 
-            // 搜索框（静态占位，搜索功能后续实现）
-            SearchBarPlaceholder()
+            // 搜索框（输入即过滤当前 tab 列表）
+            SearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it }
+            )
 
-            // 内容区：0=视频 1=最近 2=设置（设置页独立导航，回落显示视频列表）
+            // 内容区：0=视频 1=最近 2=设置（设置页独立导航，回落显示视频列表）；搜索态覆盖 tab
             when {
                 isLoading -> Box(
                     modifier = Modifier
@@ -158,6 +173,17 @@ fun VideoListContent(
                 ) {
                     CircularProgressIndicator(color = VideoListAccent)
                 }
+
+                isSearching && searchResults.isEmpty() -> EmptyHint(
+                    text = "未找到相关视频",
+                    modifier = Modifier.weight(1f)
+                )
+
+                isSearching -> VideoGrid(
+                    videos = searchResults,
+                    onVideoClick = onVideoClick,
+                    modifier = Modifier.weight(1f)
+                )
 
                 selectedTab == 1 && recentVideos.isEmpty() -> EmptyHint(
                     text = "暂无最近播放",
@@ -261,7 +287,10 @@ private fun Header(videoCount: Int) {
 }
 
 @Composable
-private fun SearchBarPlaceholder() {
+private fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -281,11 +310,39 @@ private fun SearchBarPlaceholder() {
             modifier = Modifier.size(17.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = "搜索视频",
-            color = Color.White.copy(alpha = 0.35f),
-            fontSize = 14.sp
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+            cursorBrush = SolidColor(VideoListAccent),
+            modifier = Modifier.weight(1f),
+            decorationBox = { innerTextField ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (query.isEmpty()) {
+                        Text(
+                            text = "搜索视频",
+                            color = Color.White.copy(alpha = 0.35f),
+                            fontSize = 14.sp
+                        )
+                    }
+                    innerTextField()
+                }
+            }
         )
+        if (query.isNotEmpty()) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "清除",
+                tint = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .size(18.dp)
+                    .clickable { onQueryChange("") }
+            )
+        }
     }
 }
 
