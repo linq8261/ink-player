@@ -4,10 +4,8 @@ import com.google.gson.annotations.SerializedName
 
 data class VersionDto(
     val id: Int,
-    @SerializedName("appName")
-    val appName: String,
-    @SerializedName("platform")
-    val platform: String,
+    @SerializedName("packageName")
+    val packageName: String,
     @SerializedName("versionCode")
     val versionCode: Int,
     @SerializedName("versionName")

@@ -9,7 +9,6 @@ interface LeafPlayerApi {
 
     @GET("api/version/latest")
     suspend fun getLatestVersion(
-        @Query("appName") appName: String = "leafplayer",
-        @Query("platform") platform: String = "android"
+        @Query("packageName") packageName: String = "com.ink.player"
     ): ApiResponse<VersionDto>
 }
