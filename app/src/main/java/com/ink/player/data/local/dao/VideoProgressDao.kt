@@ -19,4 +19,8 @@ interface VideoProgressDao {
     /** 最近播放记录：按最后播放时间倒序，最多 50 条（Flow 实时响应） */
     @Query("SELECT * FROM video_progress ORDER BY lastPlayedAt DESC LIMIT 50")
     fun getRecentPlayed(): Flow<List<VideoProgressEntity>>
+
+    /** 删除指定视频的播放进度（视频被删除时清理，避免残留） */
+    @Query("DELETE FROM video_progress WHERE videoUri = :videoUri")
+    suspend fun deleteByUri(videoUri: String)
 }

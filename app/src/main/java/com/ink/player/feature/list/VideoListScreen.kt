@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
@@ -146,7 +147,8 @@ fun VideoListScreen(
         onToggleSelection = { viewModel.toggleSelection(it) },
         onSelectAll = { viewModel.selectAll(it) },
         onDeselectAll = { viewModel.deselectAll() },
-        onClearSelection = { viewModel.clearSelection() }
+        onClearSelection = { viewModel.clearSelection() },
+        onDeleteClick = { viewModel.deleteSelectedVideos() }
     )
 
     // 外部传入加密密码时触发加密（由 VERIFY_PASSWORD 页面驱动）
@@ -212,7 +214,8 @@ fun VideoListContent(
     onToggleSelection: (Long) -> Unit,
     onSelectAll: (List<Long>) -> Unit,
     onDeselectAll: () -> Unit,
-    onClearSelection: () -> Unit
+    onClearSelection: () -> Unit,
+    onDeleteClick: () -> Unit = {}
 ) {
     // 0=视频 1=最近 2=设置
     var selectedTab by rememberSaveable { mutableStateOf(0) }
@@ -238,6 +241,9 @@ fun VideoListContent(
     BackHandler(enabled = isSelectionMode) {
         onClearSelection()
     }
+
+    // 删除确认对话框
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -344,7 +350,8 @@ fun VideoListContent(
             if (isSelectionMode) {
                 SelectionBottomBar(
                     selectedCount = selectedIds.size,
-                    onEncrypt = onEncryptClick
+                    onEncrypt = onEncryptClick,
+                    onDelete = { showDeleteConfirm = true }
                 )
             } else {
                 BottomNavBar(
@@ -355,6 +362,30 @@ fun VideoListContent(
                     }
                 )
             }
+        }
+
+        // 删除确认对话框
+        if (showDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text("删除视频") },
+                text = { Text("确定要删除选中的 ${selectedIds.size} 个视频吗？\n删除后不可恢复。") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteConfirm = false
+                            onDeleteClick()
+                        }
+                    ) {
+                        Text("删除", color = Color(0xFFE53935))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text("取消")
+                    }
+                }
+            )
         }
     }
 }
@@ -670,7 +701,8 @@ private fun SelectionTopBar(
 @Composable
 private fun SelectionBottomBar(
     selectedCount: Int,
-    onEncrypt: () -> Unit
+    onEncrypt: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -680,6 +712,27 @@ private fun SelectionBottomBar(
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Button(
+            onClick = onDelete,
+            enabled = selectedCount > 0,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFE53935),
+                disabledContainerColor = Color(0xFFE53935).copy(alpha = 0.4f)
+            ),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Delete,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "删除",
+                fontSize = 14.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
         Button(
             onClick = onEncrypt,
             enabled = selectedCount > 0,

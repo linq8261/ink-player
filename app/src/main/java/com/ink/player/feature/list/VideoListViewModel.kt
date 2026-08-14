@@ -7,6 +7,7 @@ import com.ink.player.data.local.dao.VideoProgressDao
 import com.ink.player.data.model.VideoInfo
 import com.ink.player.data.repository.VideoRepository
 import com.ink.player.util.FileEncryptionHelper
+import com.ink.player.util.LogUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,7 @@ import javax.inject.Inject
 class VideoListViewModel @Inject constructor(
     application: Application,
     private val repository: VideoRepository,
-    progressDao: VideoProgressDao
+    private val progressDao: VideoProgressDao
 ) : AndroidViewModel(application) {
 
     private val _videos = MutableStateFlow<List<VideoInfo>>(emptyList())
@@ -113,6 +114,32 @@ class VideoListViewModel @Inject constructor(
             clearSelection()
             loadVideos()
             _encryptingCount.value = 0
+        }
+    }
+
+    /**
+     * 删除选中的视频：从 MediaStore 删除文件并清理播放进度记录
+     */
+    fun deleteSelectedVideos() {
+        val selected = getSelectedVideos()
+        if (selected.isEmpty()) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val resolver = getApplication<Application>().contentResolver
+            for (video in selected) {
+                try {
+                    if (resolver.delete(video.uri, null, null) > 0) {
+                        progressDao.deleteByUri(video.uri.toString())
+                    }
+                } catch (e: Exception) {
+                    LogUtil.d("删除视频失败: ${video.displayName}, ${e.message}")
+                }
+            }
+            // 通知系统媒体库刷新，确保删除立即生效
+            FileEncryptionHelper.notifyMediaScanner(getApplication())
+            kotlinx.coroutines.delay(300) // 等 MediaStore 刷新
+            clearSelection()
+            loadVideos()
         }
     }
 
