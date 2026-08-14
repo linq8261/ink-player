@@ -31,6 +31,7 @@ class UserPreferencesRepository private constructor(
         private val NORMAL_SPEED = floatPreferencesKey("normal_speed")
         private val GESTURE_BRIGHTNESS = booleanPreferencesKey("gesture_brightness")
         private val GESTURE_VOLUME = booleanPreferencesKey("gesture_volume")
+        private val PRIVATE_PASSWORD_HASH = longPreferencesKey("private_password_hash")
     }
 
     /** 拖动时间轴 seek 节流间隔（毫秒），默认 100ms */
@@ -74,6 +75,21 @@ class UserPreferencesRepository private constructor(
     suspend fun setGestureVolumeEnabled(value: Boolean) {
         dataStore.edit { preferences ->
             preferences[GESTURE_VOLUME] = value
+        }
+    }
+
+    /** 加密文件夹密码哈希（简单 hash，用于本地验证），null 表示未设置 */
+    val privatePasswordHash: Flow<Long?> = dataStore.data.map { preferences ->
+        preferences[PRIVATE_PASSWORD_HASH]
+    }
+
+    suspend fun setPrivatePasswordHash(hash: Long?) {
+        dataStore.edit { preferences ->
+            if (hash != null) {
+                preferences[PRIVATE_PASSWORD_HASH] = hash
+            } else {
+                preferences.remove(PRIVATE_PASSWORD_HASH)
+            }
         }
     }
 }

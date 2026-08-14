@@ -15,8 +15,12 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.ink.player.data.local.dao.VideoProgressDao
 import com.ink.player.data.local.entity.VideoProgressEntity
+import com.ink.player.util.CryptoHelper
 import com.ink.player.util.LogUtil
 import com.ink.player.util.ToastUtil
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -41,6 +45,13 @@ class PlayerViewModel @Inject constructor(
     private var videoUri: String? = null
     private var currentProgressKey: String? = null
     private var hasRestoredPosition = false
+    private var decryptPassword: String? = null
+    private var decryptedTempFile: File? = null // 加密视频解密后的临时文件
+    private val _isDecrypting = MutableStateFlow(false)
+    val isDecrypting: StateFlow<Boolean> = _isDecrypting.asStateFlow()
+
+    private val _decryptFailed = MutableStateFlow(false)
+    val decryptFailed: StateFlow<Boolean> = _decryptFailed.asStateFlow()
 
     /** 标记当前视频是否已播放完毕（播放完毕后点击屏幕从头开始播放） */
     private var playbackEnded = false
@@ -100,16 +111,13 @@ class PlayerViewModel @Inject constructor(
 
         // Continuous position tracking while playing
         viewModelScope.launch {
-            LogUtil.d("VM position polling STARTED")
             while (isActive) {
                 val pos = player.currentPosition
                 if (pos != _currentPosition.value) {
-                    LogUtil.d("VM position UPDATE $pos")
                     _currentPosition.value = pos
                 }
                 delay(50)
             }
-            LogUtil.d("VM position polling ENDED")
         }
 
         // Periodic progress save every 5 seconds
@@ -121,26 +129,88 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun play(videoUri: String) {
+    fun play(videoUri: String, password: String? = null) {
         this.videoUri = videoUri
+        this.decryptPassword = password
+        _decryptFailed.value = false
         hasRestoredPosition = false
         playbackEnded = false
         currentProgressKey = null
 
-        val mediaItem = MediaItem.fromUri(videoUri)
+        // 如果是加密视频（.priv），IO 线程异步解密后再播放
+        if (videoUri.endsWith(".priv") && password != null) {
+            val sourceFile = File(Uri.parse(videoUri).path ?: videoUri)
+            if (!sourceFile.exists()) {
+                _decryptFailed.value = true
+                return
+            }
+            viewModelScope.launch(Dispatchers.IO) {
+                _isDecrypting.value = true
+                decryptedTempFile = createDecryptedCopy(sourceFile, password)
+                withContext(Dispatchers.Main) {
+                    _isDecrypting.value = false
+                    if (decryptedTempFile != null) {
+                        LogUtil.d("创建解密临时文件: ${decryptedTempFile!!.absolutePath}")
+                        startPlayback(Uri.fromFile(decryptedTempFile).toString())
+                    } else {
+                        _decryptFailed.value = true
+                    }
+                }
+            }
+        } else {
+            startPlayback(videoUri)
+        }
+    }
+
+    private fun startPlayback(playUri: String) {
+        val mediaItem = MediaItem.fromUri(playUri)
         player.setMediaItem(mediaItem)
         player.prepare()
         player.playWhenReady = true
 
-        // Async resolve the normalized URI key, then restore if player is already ready
         viewModelScope.launch {
-            val key = resolveMediaStoreKey(videoUri)
+            val key = resolveMediaStoreKey(videoUri ?: return@launch)
             currentProgressKey = key
             LogUtil.d("Progress key resolved: $key (original: $videoUri)")
             if (player.playbackState == Player.STATE_READY) {
                 restorePosition()
             }
         }
+    }
+
+    /**
+     * 创建加密文件的解密副本（临时文件）
+     * 只复制文件内容，不解密原文件
+     */
+    private fun createDecryptedCopy(source: File, password: String): File? {
+        return try {
+            val tempFile = File(source.parent, ".${source.nameWithoutExtension}.tmp")
+            // 复制原文件（加密状态）
+            source.copyTo(tempFile, overwrite = true)
+            // 解密临时文件头部，失败则删除临时文件返回 null
+            val success = CryptoHelper.decryptHeader(tempFile, password)
+            if (success) {
+                tempFile
+            } else {
+                tempFile.delete()
+                LogUtil.d("解密失败，已删除临时文件")
+                null
+            }
+        } catch (e: Exception) {
+            LogUtil.d("创建解密临时文件失败: ${e.message}")
+            null
+        }
+    }
+
+    /** 退出播放时删除临时文件（原文件始终保持加密，无需重新加密） */
+    fun cleanupTempFile() {
+        decryptedTempFile?.let {
+            if (it.exists()) {
+                it.delete()
+                LogUtil.d("已删除临时文件: ${it.name}")
+            }
+        }
+        decryptedTempFile = null
     }
 
     // ── URI 归一化：尝试将任意 URI 转为标准的 MediaStore content URI ──
@@ -391,7 +461,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        // 同步保存，确保在 ViewModel 销毁前写入数据库（播放完毕则不保存）
         val key = currentProgressKey
         val pos = player.currentPosition
         if (!playbackEnded && key != null && pos > 0) {
@@ -406,6 +475,7 @@ class PlayerViewModel @Inject constructor(
             }
             LogUtil.d("Final save: $pos ms for $key")
         }
+        cleanupTempFile()
         super.onCleared()
         player.release()
     }

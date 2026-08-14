@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
@@ -53,7 +54,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit = {},
-    onNavigateToAbout: () -> Unit = {}
+    onNavigateToAbout: () -> Unit = {},
+    onNavigateToSetPassword: () -> Unit = {},
+    onNavigateToVerifyPassword: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val preferences = remember { UserPreferencesRepository.getInstance(context) }
@@ -61,6 +64,7 @@ fun SettingsScreen(
     val normalSpeed by preferences.normalSpeed.collectAsState(initial = 1f)
     val gestureBrightness by preferences.gestureBrightnessEnabled.collectAsState(initial = false)
     val gestureVolume by preferences.gestureVolumeEnabled.collectAsState(initial = false)
+    val passwordHash by preferences.privatePasswordHash.collectAsState(initial = null)
     var showThrottleDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -117,6 +121,27 @@ fun SettingsScreen(
                 title = "音量滑动调节",
                 checked = gestureVolume,
                 onCheckedChange = { scope.launch { preferences.setGestureVolumeEnabled(it) } }
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Lock,
+                title = "加密文件夹",
+                onClick = {
+                    // 检查存储权限（Android 11+）
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
+                        && !android.os.Environment.isExternalStorageManager()
+                    ) {
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                            data = android.net.Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                        android.widget.Toast.makeText(context, "请先授予\"所有文件访问权限\"", android.widget.Toast.LENGTH_SHORT).show()
+                    } else if (passwordHash != null) {
+                        onNavigateToVerifyPassword()
+                    } else {
+                        onNavigateToSetPassword()
+                    }
+                }
             )
 
             SettingsItem(

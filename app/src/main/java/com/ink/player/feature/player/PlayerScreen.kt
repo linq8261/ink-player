@@ -15,14 +15,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import android.app.Activity
 import android.media.AudioManager
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,12 +64,15 @@ fun PlayerScreen(
     videoUri: String?,
     onBackClick: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    decryptPassword: String? = null, // 加密视频的解密密码
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     val duration by viewModel.duration.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val playbackSpeed by viewModel.playbackSpeed.collectAsState()
+    val decryptFailed by viewModel.decryptFailed.collectAsState()
+    val isDecrypting by viewModel.isDecrypting.collectAsState()
 
     // 读取用户配置的 seek 节流间隔
     val context = LocalContext.current
@@ -80,11 +87,13 @@ fun PlayerScreen(
     // 手势控制层 → 时间轴的滑动事件桥梁（作为 State 对象传递，供 Timeline 的 snapshotFlow 追踪）
     val externalSwipeState = remember { mutableStateOf(ExternalSwipeState()) }
 
-    LogUtil.d("PlayerScreen state: duration=$duration currentPosition=$currentPosition isPlaying=$isPlaying")
+    LaunchedEffect(isPlaying) {
+        LogUtil.d("PlayerScreen isPlaying: $isPlaying (duration=$duration)")
+    }
 
     LaunchedEffect(videoUri) {
         if (videoUri != null) {
-            viewModel.play(videoUri)
+            viewModel.play(videoUri, decryptPassword)
         }
     }
 
@@ -92,6 +101,7 @@ fun PlayerScreen(
         onDispose {
             viewModel.saveProgressNow()
             viewModel.player.stop()
+            viewModel.cleanupTempFile()
         }
     }
 
@@ -114,6 +124,56 @@ fun PlayerScreen(
                 .fillMaxWidth()
                 .weight(1F)
         ) {
+            // 解密进度条
+            if (isDecrypting) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(
+                            color = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "正在解密...",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+
+            // 解密失败提示
+            if (decryptFailed) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "解密失败",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "密码错误或文件已损坏",
+                            color = Color.White.copy(alpha = 0.35f),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
             // 视频渲染层
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
