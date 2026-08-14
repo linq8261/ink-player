@@ -3,6 +3,7 @@ package com.ink.player.feature.list
 import android.Manifest
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -232,6 +233,11 @@ fun VideoListContent(
     }
     val allIds = remember(displayList) { displayList.map { it.id } }
     val isAllSelected = allIds.isNotEmpty() && selectedIds.containsAll(allIds)
+
+    // 多选模式下按返回键退出选择状态，而不是返回桌面
+    BackHandler(enabled = isSelectionMode) {
+        onClearSelection()
+    }
 
     Box(
         modifier = Modifier
