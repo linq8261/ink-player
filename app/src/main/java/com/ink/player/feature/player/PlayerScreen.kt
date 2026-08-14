@@ -174,6 +174,7 @@ fun PlayerScreen(
                     }
                 }
             }
+            
             // 视频渲染层
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -189,24 +190,23 @@ fun PlayerScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clickable { viewModel.togglePlayPause() }
             ) {
                 // 控制层（半透明覆盖层，点击空白处切换播放/暂停）
                 GestureControlLayer(
-                durationMs = duration,
-                currentPositionMs = currentPosition,
-                viewModel = viewModel,
-                gestureBrightnessEnabled = gestureBrightnessEnabled,
-                gestureVolumeEnabled = gestureVolumeEnabled,
-                window = window,
-                audioManager = audioManager,
-                onExternalSwipe = { offset ->
-                    externalSwipeState.value = ExternalSwipeState(isActive = true, scrollOffset = offset)
-                },
-                onExternalSwipeEnd = {
-                    externalSwipeState.value = ExternalSwipeState()
-                }
-            )
+                    durationMs = duration,
+                    currentPositionMs = currentPosition,
+                    viewModel = viewModel,
+                    gestureBrightnessEnabled = gestureBrightnessEnabled,
+                    gestureVolumeEnabled = gestureVolumeEnabled,
+                    window = window,
+                    audioManager = audioManager,
+                    onExternalSwipe = { offset ->
+                        externalSwipeState.value = ExternalSwipeState(isActive = true, scrollOffset = offset)
+                    },
+                    onExternalSwipeEnd = {
+                        externalSwipeState.value = ExternalSwipeState()
+                    }
+                )
 
                 // 进度条（可拖动快速 seek）
                 ProgressSeekBar(
