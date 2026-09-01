@@ -12,18 +12,19 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -55,8 +56,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onBackClick: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
-    onNavigateToSetPassword: () -> Unit = {},
-    onNavigateToVerifyPassword: () -> Unit = {}
+    onNavigateToExperimental: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val preferences = remember { UserPreferencesRepository.getInstance(context) }
@@ -64,7 +64,6 @@ fun SettingsScreen(
     val normalSpeed by preferences.normalSpeed.collectAsState(initial = 1f)
     val gestureBrightness by preferences.gestureBrightnessEnabled.collectAsState(initial = false)
     val gestureVolume by preferences.gestureVolumeEnabled.collectAsState(initial = false)
-    val passwordHash by preferences.privatePasswordHash.collectAsState(initial = null)
     var showThrottleDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -93,18 +92,26 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .padding(top = 8.dp)
         ) {
-            SettingsItem(
-                icon = Icons.Default.Refresh,
-                title = "拖动响应间隔",
-                subtitle = "${seekThrottleMs}ms",
-                onClick = { showThrottleDialog = true }
+            ListItem(
+                headlineContent = { Text("拖动响应间隔") },
+                supportingContent = { Text("${seekThrottleMs}ms") },
+                leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                trailingContent = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                modifier = Modifier.clickable { showThrottleDialog = true }
             )
 
-            SettingsItem(
-                icon = Icons.Default.PlayArrow,
-                title = "默认播放速度",
-                subtitle = "${normalSpeed}x",
-                onClick = { showSpeedDialog = true }
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("默认播放速度") },
+                supportingContent = { Text("${normalSpeed}x") },
+                leadingContent = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                trailingContent = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                modifier = Modifier.clickable { showSpeedDialog = true }
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -123,31 +130,24 @@ fun SettingsScreen(
                 onCheckedChange = { scope.launch { preferences.setGestureVolumeEnabled(it) } }
             )
 
-            SettingsItem(
-                icon = Icons.Default.Lock,
-                title = "加密文件夹",
-                onClick = {
-                    // 检查存储权限（Android 11+）
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
-                        && !android.os.Environment.isExternalStorageManager()
-                    ) {
-                        val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                            data = android.net.Uri.parse("package:${context.packageName}")
-                        }
-                        context.startActivity(intent)
-                        android.widget.Toast.makeText(context, "请先授予\"所有文件访问权限\"", android.widget.Toast.LENGTH_SHORT).show()
-                    } else if (passwordHash != null) {
-                        onNavigateToVerifyPassword()
-                    } else {
-                        onNavigateToSetPassword()
-                    }
-                }
+            ListItem(
+                headlineContent = { Text("实验性功能") },
+                leadingContent = { Icon(Icons.Default.Science, contentDescription = null) },
+                trailingContent = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                modifier = Modifier.clickable(onClick = onNavigateToExperimental)
             )
 
-            SettingsItem(
-                icon = Icons.Default.Info,
-                title = "关于",
-                onClick = onNavigateToAbout
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("关于") },
+                leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                trailingContent = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                modifier = Modifier.clickable(onClick = onNavigateToAbout)
             )
         }
     }
@@ -269,58 +269,7 @@ private fun SpeedSelectDialog(
 }
 
 @Composable
-private fun SettingsItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.padding(start = 16.dp))
-
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-        if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.padding(start = 8.dp))
-        }
-
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        thickness = 0.5.dp,
-        color = MaterialTheme.colorScheme.outlineVariant
-    )
-}
-
-@Composable
-private fun SettingsSwitchItem(
+internal fun SettingsSwitchItem(
     icon: ImageVector,
     title: String,
     checked: Boolean,

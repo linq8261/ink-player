@@ -54,7 +54,9 @@ import com.ink.player.feature.player.PlayerScreen
 import com.ink.player.feature.about.AboutScreen
 import com.ink.player.feature.privacy.PasswordScreen
 import com.ink.player.feature.privacy.PrivateScreen
+import com.ink.player.feature.settings.ExperimentalScreen
 import com.ink.player.feature.settings.SettingsScreen
+import com.ink.player.feature.wukong.WukongConvertScreen
 import com.ink.player.ui.theme.InkPlayerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -177,6 +179,17 @@ class MainActivity : ComponentActivity() {
                             onNavigateToAbout = {
                                 nc.navigate(NavRoutes.ABOUT)
                             },
+                            onNavigateToExperimental = {
+                                nc.navigate(NavRoutes.EXPERIMENTAL)
+                            }
+                        )
+                    }
+
+                    composable(NavRoutes.EXPERIMENTAL) {
+                        ExperimentalScreen(
+                            onBackClick = {
+                                nc.popBackStack()
+                            },
                             onNavigateToSetPassword = {
                                 nc.navigate(NavRoutes.SET_PASSWORD)
                             },
@@ -187,6 +200,17 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     nc.navigate(NavRoutes.VERIFY_PASSWORD)
                                 }
+                            },
+                            onNavigateToWukongConvert = {
+                                nc.navigate(NavRoutes.WUKONG_CONVERT)
+                            }
+                        )
+                    }
+
+                    composable(NavRoutes.WUKONG_CONVERT) {
+                        WukongConvertScreen(
+                            onBackClick = {
+                                nc.popBackStack()
                             }
                         )
                     }
@@ -231,9 +255,9 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { nc.popBackStack() },
                             onSuccess = { password ->
                                 currentPassword = password
-                                // 判断来源：如果前一个页面是 SETTINGS，则进入加密文件夹；否则是加密操作
+                                // 判断来源：如果前一个页面是 EXPERIMENTAL，则进入加密文件夹；否则是加密操作
                                 val prevRoute = nc.previousBackStackEntry?.destination?.route
-                                if (prevRoute == NavRoutes.SETTINGS) {
+                                if (prevRoute == NavRoutes.EXPERIMENTAL) {
                                     nc.popBackStack()
                                     nc.navigate(NavRoutes.PRIVATE)
                                 } else {
