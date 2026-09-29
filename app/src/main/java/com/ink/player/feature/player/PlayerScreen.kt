@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import android.app.Activity
 import android.media.AudioManager
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
@@ -451,17 +452,17 @@ private fun ProgressSeekBar(
     } else 0f
 
     val durationText = if (durationMs > 0) {
-        val totalSec = durationMs / 1000
-        "${totalSec / 60}:${String.format("%02d", totalSec % 60)}"
+        "${formatDurationText(currentPositionMs.coerceIn(0, durationMs))} / ${formatDurationText(durationMs)}"
     } else ""
 
-    Box(
+    Column (
+        verticalArrangement = Arrangement.Bottom,
         modifier = modifier
             .fillMaxWidth()
             .height(36.dp)
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 1.0f))
                 )
             )
             .pointerInput(durationMs) {
@@ -487,15 +488,14 @@ private fun ProgressSeekBar(
                 }
             }
     ) {
-        // 视频时长标签（右上角）
+        // 视频时长标签（左上角）
         if (durationText.isNotEmpty()) {
             Text(
                 text = durationText,
-                color = Color(0xFF999999),
-                fontSize = 11.sp,
+                color = Color(0xFFFF4444),
+                fontSize = 10.sp,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 10.dp, top = 2.dp)
+                    .padding(start = 15.dp)
             )
         }
 
@@ -503,9 +503,8 @@ private fun ProgressSeekBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp)
+                .padding(horizontal = 15.dp)
                 .height(1.dp)
-                .align(Alignment.CenterStart)
         ) {
             // 背景轨道
             Box(
@@ -522,5 +521,18 @@ private fun ProgressSeekBar(
                     .background(Color(0xFFFF4444), RoundedCornerShape(0.5.dp))
             )
         }
+    }
+}
+
+/** 将毫秒格式化为 m:ss 或 h:mm:ss */
+private fun formatDurationText(ms: Long): String {
+    val totalSec = (ms / 1000).coerceAtLeast(0)
+    val h = totalSec / 3600
+    val m = (totalSec % 3600) / 60
+    val s = totalSec % 60
+    return if (h > 0) {
+        "$h:${String.format("%02d", m)}:${String.format("%02d", s)}"
+    } else {
+        "$m:${String.format("%02d", s)}"
     }
 }
