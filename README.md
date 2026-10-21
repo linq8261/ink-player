@@ -4,6 +4,16 @@
 
 总是找不到一个自己喜欢的播放器，于是自己写了一个。
 
+## 截图
+
+### 首页
+
+<img src="doc/screenshots/home.png" width="320" alt="首页" />
+
+### 播放页
+
+<img src="doc/screenshots/player-gestures.png" width="320" alt="播放页手势操作" />
+
 ## 功能
 
 1. 单击：播放/暂停。
