@@ -11,6 +11,9 @@ pluginManagement {
         maven { url = uri("https://maven.aliyun.com/repository/central") }
         maven { url = uri("https://maven.aliyun.com/repository/public") }
         maven { url = uri("https://repo.huaweicloud.com/repository/maven/") }
+        // KSP 的插件标记（com.google.devtools.ksp.gradle.plugin）只发布在 Maven Central，
+        // Google Maven 上是 404；国内镜像在 GitHub runner 上不一定可达，所以必须留一个官方源兜底
+        mavenCentral()
         gradlePluginPortal()
     }
 }
@@ -25,6 +28,7 @@ dependencyResolutionManagement {
         maven { url = uri("https://maven.aliyun.com/repository/central") }
         maven { url = uri("https://maven.aliyun.com/repository/public") }
         maven { url = uri("https://repo.huaweicloud.com/repository/maven/") }
+        mavenCentral()
     }
 }
 
