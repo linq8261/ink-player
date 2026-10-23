@@ -128,7 +128,7 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::error::stats: exit=$STATUS lines=$(wc -l < gradle-build.log) nonempty=$(grep -c . gradle-build.log || true)"
-            NET=$(grep -m 25 -E "Resource missing|Could not (GET|HEAD|resolve|download)|Received status code|Connection refused|UnknownHost|timed out|PKIX|SSLHandshake" gradle-build.log | tr '\n' '|')
+            NET=$(grep -m 40 -E "devtools/ksp|Received status code|Connection refused|UnknownHost|timed out|PKIX|SSLHandshake|Could not GET|Could not HEAD|Could not resolve" gradle-build.log | tr '\n' '|')
             echo "::error::net| $NET"
             echo "::error::head| $(head -n 12 gradle-build.log | tr '\n' '|')"
             echo "::error::tail| $(tail -n 12 gradle-build.log | tr '\n' '|')"
