@@ -46,6 +46,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ink.player.data.remote.dto.VersionDto
+import com.ink.player.data.remote.dto.resolveDownloadUrl
 import com.ink.player.data.repository.CheckUpdateRepository
 import com.ink.player.data.repository.UpdateCheckResult
 import com.ink.player.data.repository.UserPreferencesRepository
@@ -283,7 +284,7 @@ class MainActivity : ComponentActivity() {
                         onDismiss = { pendingUpdateInfo = null },
                         onUpdate = {
                             pendingUpdateInfo = null
-                            val downloadUrl = versionInfo.url ?: versionInfo.filePath
+                            val downloadUrl = versionInfo.resolveDownloadUrl()
                             if (!downloadUrl.isNullOrBlank()) {
                                 try {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))

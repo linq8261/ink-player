@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ink.player.BuildConfig
+import com.ink.player.data.remote.dto.resolveDownloadUrl
 import com.ink.player.data.repository.UpdateCheckResult
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -165,7 +166,7 @@ fun AboutScreen(
                 Button(
                     onClick = {
                         viewModel.dismissUpdateDialog()
-                        val downloadUrl = versionInfo.url ?: versionInfo.filePath
+                        val downloadUrl = versionInfo.resolveDownloadUrl()
                         if (!downloadUrl.isNullOrBlank()) {
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))

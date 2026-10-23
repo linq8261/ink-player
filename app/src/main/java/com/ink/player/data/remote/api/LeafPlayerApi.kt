@@ -3,12 +3,13 @@ package com.ink.player.data.remote.api
 import com.ink.player.data.remote.dto.ApiResponse
 import com.ink.player.data.remote.dto.VersionDto
 import retrofit2.http.GET
-import retrofit2.http.Query
+import retrofit2.http.Path
 
 interface LeafPlayerApi {
 
-    @GET("api/version/latest")
+    /** 公开接口：GET /api/v1/apps/{packageName}/versions/latest */
+    @GET("api/v1/apps/{packageName}/versions/latest")
     suspend fun getLatestVersion(
-        @Query("packageName") packageName: String = "com.ink.player"
+        @Path("packageName") packageName: String = "com.ink.player"
     ): ApiResponse<VersionDto>
 }
