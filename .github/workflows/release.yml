@@ -103,6 +103,7 @@ jobs:
       - name: 构建 release APK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
+          gradle --version 2>&1 | head -n 8
           # runner 用 bash -e 执行，pipefail 会让失败直接退出、跳过下面的诊断，所以这里先关掉
           set +e
           set -o pipefail
@@ -110,11 +111,11 @@ jobs:
           STATUS=${PIPESTATUS[0]}
           set -e
           if [ "$STATUS" -ne 0 ]; then
-            # 根因在 "What went wrong" 段，位置偏前，只 tail 日志尾部抓不到；
-            # 抓不到（比如配置阶段就崩）再退回关键字 grep。
-            DIAG=$(sed -n '/What went wrong/,/^\* Try:/p' gradle-build.log | head -n 40)
+            # 公开仓库匿名看不到 Actions 原始日志，只能靠注解把内容带出来（每步最多 10 条，
+            # 所以要合并成单行，不能一行一条）。DIAG 抓 "What went wrong" 段，HEAD/TAIL 兜底。
+            DIAG=$(sed -n '/What went wrong/,/^\* Try:/p' gradle-build.log | head -n 30)
             if [ -z "$DIAG" ]; then
-              DIAG=$(grep -n -E "^(e:|error:|FAILURE)|Could not (resolve|find|download)|Unsupported|licence|requires" gradle-build.log | head -n 40)
+              DIAG=$(grep -n -E "^(e:|error:|FAILURE)|Could not (resolve|find|download)|Unsupported|licence|requires" gradle-build.log | head -n 30)
             fi
             {
               echo "## Gradle 构建失败（exit=$STATUS，日志 $(wc -l < gradle-build.log) 行）"
@@ -126,8 +127,12 @@ jobs:
               tail -n 40 gradle-build.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::Gradle 构建失败（exit=$STATUS），根因见运行页 Summary；摘要："
-            echo "$DIAG" | head -n 8 | while IFS= read -r line; do echo "::error::$line"; done
+            echo "::error::stats: exit=$STATUS lines=$(wc -l < gradle-build.log) nonempty=$(grep -c . gradle-build.log || true)"
+            echo "::error::head| $(head -n 12 gradle-build.log | tr '\n' '|')"
+            echo "::error::tail| $(tail -n 12 gradle-build.log | tr '\n' '|')"
+            if [ -n "$DIAG" ]; then
+              echo "::error::diag| $(echo "$DIAG" | tr '\n' '|')"
+            fi
             ls -l app/build/outputs/apk/release/ 2>/dev/null || echo "release 输出目录不存在"
             exit 1
           fi
