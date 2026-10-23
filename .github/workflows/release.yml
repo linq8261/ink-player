@@ -84,10 +84,25 @@ jobs:
             > local.properties
           sed 's/Password=.*/Password=***/' local.properties
 
+      # compileSdk 用了 36.1（minorApiLevel = 1），runner 预装的 SDK 里通常只有 android-36，
+      # 缺组件时 AGP 自动下载偶发失败，这里显式装一遍（已装则秒过）
+      - name: 安装 Android SDK 组件
+        run: |
+          set -uo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -n1)
+          fi
+          echo "sdkmanager=$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          # 装失败不直接中断：AGP 自己也会尝试下载，失败信息留给构建步骤暴露
+          yes | "$SDKMANAGER" "platforms;android-36.1" "build-tools;36.1.0" "build-tools;37.0.0" || true
+          echo "--- platforms ---"; ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "无"
+          echo "--- build-tools ---"; ls "$ANDROID_HOME/build-tools" 2>/dev/null || echo "无"
+
       - name: 构建 release APK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "无法列出 platforms"
           # runner 用 bash -e 执行，pipefail 会让失败直接退出、跳过下面的诊断，所以这里先关掉
           set +e
           set -o pipefail
@@ -95,9 +110,24 @@ jobs:
           STATUS=${PIPESTATUS[0]}
           set -e
           if [ "$STATUS" -ne 0 ]; then
-            # 把日志尾部重新打成注解，方便直接在网页/接口里看到失败原因
-            echo "::error::Gradle 构建失败（exit=$STATUS，日志 $(wc -l < gradle-build.log) 行），尾部如下"
-            tail -n 8 gradle-build.log | while IFS= read -r line; do echo "::error::$line"; done
+            # 根因在 "What went wrong" 段，位置偏前，只 tail 日志尾部抓不到；
+            # 抓不到（比如配置阶段就崩）再退回关键字 grep。
+            DIAG=$(sed -n '/What went wrong/,/^\* Try:/p' gradle-build.log | head -n 40)
+            if [ -z "$DIAG" ]; then
+              DIAG=$(grep -n -E "^(e:|error:|FAILURE)|Could not (resolve|find|download)|Unsupported|licence|requires" gradle-build.log | head -n 40)
+            fi
+            {
+              echo "## Gradle 构建失败（exit=$STATUS，日志 $(wc -l < gradle-build.log) 行）"
+              echo '```'
+              echo "$DIAG"
+              echo '```'
+              echo "### 日志尾部"
+              echo '```'
+              tail -n 40 gradle-build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Gradle 构建失败（exit=$STATUS），根因见运行页 Summary；摘要："
+            echo "$DIAG" | head -n 8 | while IFS= read -r line; do echo "::error::$line"; done
             ls -l app/build/outputs/apk/release/ 2>/dev/null || echo "release 输出目录不存在"
             exit 1
           fi
