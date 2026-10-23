@@ -107,7 +107,7 @@ jobs:
           # runner 用 bash -e 执行，pipefail 会让失败直接退出、跳过下面的诊断，所以这里先关掉
           set +e
           set -o pipefail
-          gradle assembleRelease --no-daemon --stacktrace --console=plain 2>&1 | tee gradle-build.log
+          gradle assembleRelease --no-daemon --stacktrace --info --console=plain 2>&1 | tee gradle-build.log
           STATUS=${PIPESTATUS[0]}
           set -e
           if [ "$STATUS" -ne 0 ]; then
@@ -128,6 +128,8 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::error::stats: exit=$STATUS lines=$(wc -l < gradle-build.log) nonempty=$(grep -c . gradle-build.log || true)"
+            NET=$(grep -m 25 -E "Resource missing|Could not (GET|HEAD|resolve|download)|Received status code|Connection refused|UnknownHost|timed out|PKIX|SSLHandshake" gradle-build.log | tr '\n' '|')
+            echo "::error::net| $NET"
             echo "::error::head| $(head -n 12 gradle-build.log | tr '\n' '|')"
             echo "::error::tail| $(tail -n 12 gradle-build.log | tr '\n' '|')"
             if [ -n "$DIAG" ]; then
