@@ -9,3 +9,4 @@
 .externalNativeBuild
 .cxx
 .codebuddy/
+.comate/
