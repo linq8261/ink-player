@@ -32,3 +32,10 @@
 6. 倍速：可以设置默认倍速，可以点击顶部的倍速切换倍速。
 7. 保存帧：看到哪一个画面好看，可以保存那一帧，相当于截图。
 8. 保存播放进度。
+
+## 构建
+
+直接 `./gradlew assembleDebug` 即可，`local.properties` 缺失时也能正常编译（产物为未签名包）。
+
+签名信息从根目录 `local.properties` 读取（`signing.storeFile` / `signing.storePassword` /
+`signing.keyAlias` / `signing.keyPassword`），未配置或找不到 jks 时自动跳过签名。

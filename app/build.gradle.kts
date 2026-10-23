@@ -1,5 +1,4 @@
 import java.util.Properties
-import kotlin.apply
 
 plugins {
     alias(libs.plugins.android.application)
@@ -7,6 +6,15 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+// local.properties 不进版本库（含 SDK 路径与本机签名信息），缺失或未配置签名时降级为不签名构建，
+// 保证别人 clone 下来能直接编译。
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val keystorePath: String? = localProps.getProperty("signing.storeFile")
+    ?.takeIf { file(it).exists() }
 
 android {
     namespace = "com.ink.player"
@@ -27,14 +35,13 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            val keystoreProps = Properties().apply {
-                load(rootProject.file("local.properties").inputStream())
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = localProps.getProperty("signing.storePassword")
+                keyAlias = localProps.getProperty("signing.keyAlias")
+                keyPassword = localProps.getProperty("signing.keyPassword")
             }
-            storeFile = file(keystoreProps.getProperty("signing.storeFile"))
-            storePassword = keystoreProps.getProperty("signing.storePassword")
-            keyAlias = keystoreProps.getProperty("signing.keyAlias")
-            keyPassword = keystoreProps.getProperty("signing.keyPassword")
         }
     }
     buildTypes {
@@ -44,7 +51,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs["release"]
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             buildConfigField("String", "SERVER_BASE_URL", "\"https://203.195.213.233/\"")
         }
         create("local") {
@@ -57,7 +66,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs["release"]
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             buildConfigField("String", "SERVER_BASE_URL", "\"https://203.195.213.233/\"")
         }
     }
