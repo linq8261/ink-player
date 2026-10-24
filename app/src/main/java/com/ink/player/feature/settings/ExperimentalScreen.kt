@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ink.player.data.repository.UserPreferencesRepository
+import com.ink.player.util.ToastUtil
 import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,11 +83,7 @@ fun ExperimentalScreen(
                                     data = android.net.Uri.parse("package:${context.packageName}")
                                 }
                         context.startActivity(intent)
-                        android.widget.Toast.makeText(
-                            context,
-                            "请先授予\"所有文件访问权限\"",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
+                        ToastUtil.show("请先授予\"所有文件访问权限\"")
                     } else if (passwordHash != null) {
                         onNavigateToVerifyPassword()
                     } else {

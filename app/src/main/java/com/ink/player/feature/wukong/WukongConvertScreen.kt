@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.ink.player.util.ToastUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -282,9 +283,7 @@ fun WukongConvertScreen(onBackClick: () -> Unit = {}) {
                                     convertingTask = null
                                     progressText = ""
                                     val finalMsg = if (!ok && cancelled) "已取消转换" else msg
-                                    android.widget.Toast
-                                        .makeText(context, finalMsg, android.widget.Toast.LENGTH_LONG)
-                                        .show()
+                                    ToastUtil.showLong(finalMsg)
                                     cancelled = false
                                     if (ok) refresh() // 刷新置灰状态
                                 }

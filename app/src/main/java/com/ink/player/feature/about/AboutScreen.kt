@@ -18,8 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -28,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.ink.player.BuildConfig
 import com.ink.player.data.remote.dto.resolveDownloadUrl
 import com.ink.player.data.repository.UpdateCheckResult
+import com.ink.player.util.ToastUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +45,6 @@ fun AboutScreen(
     viewModel: AboutViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
     val uiState by viewModel.uiState.collectAsState()
     val appName = context.applicationInfo.loadLabel(context.packageManager).toString()
 
@@ -55,11 +52,11 @@ fun AboutScreen(
     LaunchedEffect(uiState.updateResult) {
         when (val result = uiState.updateResult) {
             is UpdateCheckResult.NoUpdate -> {
-                snackbarHostState.showSnackbar("当前已是最新版本")
+                ToastUtil.show("当前已是最新版本")
                 viewModel.clearUpdateResult()
             }
             is UpdateCheckResult.Error -> {
-                snackbarHostState.showSnackbar("检查更新失败: ${result.message}")
+                ToastUtil.show("检查更新失败: ${result.message}")
                 viewModel.clearUpdateResult()
             }
             else -> {}
@@ -82,8 +79,7 @@ fun AboutScreen(
                     }
                 }
             )
-        },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
