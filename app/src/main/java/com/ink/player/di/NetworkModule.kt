@@ -34,49 +34,40 @@ object NetworkModule {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
-        return try {
-            // 加载本地证书
-            val certificateFactory = CertificateFactory.getInstance("X.509")
-            val certificate = context.resources.openRawResource(R.raw.server).use { inputStream ->
-                certificateFactory.generateCertificate(inputStream) as X509Certificate
-            }
-
-            // 创建只包含该证书的 KeyStore
-            val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-                load(null, null)
-                setCertificateEntry("server", certificate)
-            }
-
-            // 创建 TrustManager
-            val trustManagerFactory = TrustManagerFactory.getInstance(
-                TrustManagerFactory.getDefaultAlgorithm()
-            ).apply {
-                init(keyStore)
-            }
-
-            val trustManagers = trustManagerFactory.trustManagers
-            val trustManager = trustManagers[0] as X509TrustManager
-
-            // 创建 SSLContext
-            val sslContext = SSLContext.getInstance("TLS").apply {
-                init(null, arrayOf<TrustManager>(trustManager), null)
-            }
-
-            OkHttpClient.Builder()
-                .sslSocketFactory(sslContext.socketFactory, trustManager)
-                .hostnameVerifier { _, _ -> true } // 允许证书中的主机名与实际不符（证书锁定已确保安全性）
-                .addInterceptor(logging)
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
-                .build()
-        } catch (e: Exception) {
-            // 证书加载失败时回退到默认 OkHttpClient（会校验系统证书）
-            OkHttpClient.Builder()
-                .addInterceptor(logging)
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
-                .build()
+        // 只信任内置根证书（res/raw/server.crt，MyInk Root CA），不信任系统 CA：
+        // 服务器 IP 入口用自建 CA 签发的证书，公网 CA 不认。只走 IP 访问，因此只信任这一个根 CA。
+        // 主机名校验交给 OkHttp 默认逻辑（证书 SAN 含 IP 203.195.213.233），不做 trust-all。
+        val certificateFactory = CertificateFactory.getInstance("X.509")
+        val certificate = context.resources.openRawResource(R.raw.server).use { inputStream ->
+            certificateFactory.generateCertificate(inputStream) as X509Certificate
         }
+
+        val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+            load(null, null)
+            setCertificateEntry("ca", certificate)
+        }
+
+        val trustManagerFactory = TrustManagerFactory.getInstance(
+            TrustManagerFactory.getDefaultAlgorithm()
+        ).apply {
+            init(keyStore)
+        }
+
+        val trustManager = trustManagerFactory.trustManagers
+            .filterIsInstance<X509TrustManager>()
+            .firstOrNull()
+            ?: throw IllegalStateException("未找到 X509TrustManager")
+
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf<TrustManager>(trustManager), null)
+        }
+
+        return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustManager)
+            .addInterceptor(logging)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
     }
 
     @Provides
